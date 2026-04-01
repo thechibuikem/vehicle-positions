@@ -1,27 +1,35 @@
 package main
 
 import (
-	"context"
-	"errors"
-	"log/slog"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
+	"context" //like AbortController in express.js for cancellation
+	"errors" //error checking utilities
+	"log/slog"//structured JSON logger
+	"net/http" //http server- like express server itself
+	"os"// access environmental variables and OS signals
+	"os/signal" //listen for signals and stuff 
+	"syscall" //system-level signals (SIGNIT,SIGTERM)
+	"time" //time durations and timestamps
 )
 
-func main() {
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 
-	port := envOrDefault("PORT", "8080")
+func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))  //setting up the logger
+
+	port := envOrDefault("PORT", "8080")	/*function envOrDefault(key, fallback) {
+											return process.env[key] || fallback;
+											}
+											const port = envOrDefault("PORT", 8080);
+											create a port	
+											*/
+	
+	// initializing function scoped variables
 	databaseURL := envOrDefault("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/vehicle_positions?sslmode=disable")
 	maxAge := envDurationOrDefault("STALENESS_THRESHOLD", 5*time.Minute)
-
 	readTimeout := envDurationOrDefault("READ_TIMEOUT", 15*time.Second)
 	writeTimeout := envDurationOrDefault("WRITE_TIMEOUT", 15*time.Second)
 	idleTimeout := envDurationOrDefault("IDLE_TIMEOUT", 60*time.Second)
 
+	// initialzing secrets and error handling
 	jwtSecretStr := os.Getenv("JWT_SECRET")
 	if jwtSecretStr == "" {
 		slog.Error("JWT_SECRET environment variable is not set")
@@ -31,7 +39,7 @@ func main() {
 		slog.Error("JWT_SECRET must be at least 32 bytes long for HMAC-SHA256 security")
 		os.Exit(1)
 	}
-	jwtSecret := []byte(jwtSecretStr)
+	jwtSecret := []byte(jwtSecretStr) //converting secrets into usuable form
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -113,6 +121,10 @@ func envOrDefault(key, fallback string) string {
 	}
 	return fallback
 }
+ /*
+-parameters are key and fallback, this function return string.
+- if v exists in my env and v is not an empty string; return v, else return fallback
+*/
 
 func envDurationOrDefault(key string, fallback time.Duration) time.Duration {
 	if v := os.Getenv(key); v != "" {
@@ -125,6 +137,12 @@ func envDurationOrDefault(key string, fallback time.Duration) time.Duration {
 	}
 	return fallback
 }
+/*
+-parameters are key and fallback, this function return time.Duration.
+-if key exists in env and is not an empty string, parse it
+-if the result of our parsing was an error, throw a warning and use fallback
+*/
+
 
 type statusRecorder struct {
 	http.ResponseWriter
